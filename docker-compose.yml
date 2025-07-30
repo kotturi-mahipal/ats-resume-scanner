@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  #Backend Service
+  backend:
+    build: ./backend
+    container_name: ats-backend
+    ports:
+      - "8080:8080"
+
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+
+  frontend:
+    build: ./frontend
+    container_name: ats-frontend
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
