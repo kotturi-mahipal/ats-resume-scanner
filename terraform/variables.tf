@@ -7,3 +7,8 @@ variable "github_pat" {
   type        = string
   sensitive   = true
 }
+
+variable "github_username" {
+  description = "The GitHub username for GHCR authentication."
+  type        = string
+}

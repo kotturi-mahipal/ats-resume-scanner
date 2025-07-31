@@ -139,9 +139,13 @@ resource "aws_secretsmanager_secret" "ghcr_pat" {
   name = "ghcr-pat"
 }
 
+# This is the key change. We now store a JSON object, not a raw string.
 resource "aws_secretsmanager_secret_version" "ghcr_pat_version" {
-  secret_id     = aws_secretsmanager_secret.ghcr_pat.id
-  secret_string = var.github_pat # Pass the PAT as a variable
+  secret_id = aws_secretsmanager_secret.ghcr_pat.id
+  secret_string = jsonencode({
+    username = var.github_username
+    password = var.github_pat
+  })
 }
 
 # Add a policy to the ECS Task Execution Role to allow it to read the secret
