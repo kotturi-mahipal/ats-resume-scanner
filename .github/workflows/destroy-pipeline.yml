@@ -1,0 +1,47 @@
+name: Manual CD - Destroy AWS Infrastructure
+
+# This workflow is triggered manually from the GitHub Actions UI
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_destroy:
+        description: 'Type "destroy" to confirm you want to tear down all AWS resources.'
+        required: true
+        default: 'do-not-destroy'
+
+permissions:
+  contents: read
+  id-token: write # Required for authenticating to AWS
+
+jobs:
+  # This job will only run if the user explicitly types "destroy"
+  destroy-infrastructure:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm_destroy == 'destroy'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubActionsDeployRole
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
+
+      - name: Terraform Destroy
+        env:
+          # The destroy command also needs the PAT to read the secret from the state file
+          TF_VAR_github_pat: ${{ secrets.GHCR_PAT }}
+        working-directory: ./terraform
+        run: |
+          terraform destroy -auto-approve \
+            -var="github_repository_owner=${{ github.repository_owner }}" \
+            -var="github_username=${{ github.actor }}"
