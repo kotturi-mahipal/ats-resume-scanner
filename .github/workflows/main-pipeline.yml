@@ -78,7 +78,7 @@ jobs:
   # Final Deployment Job
   deploy:
     runs-on: ubuntu-latest
-    needs: [ build-backend, build-frontend ]
+    needs: [build-backend, build-frontend]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
@@ -100,7 +100,6 @@ jobs:
         working-directory: ./terraform
         run: |
           terraform init
-          # This is the key change: passing both variables
           terraform apply -auto-approve \
             -var="github_repository_owner=${{ github.repository_owner }}" \
             -var="github_username=${{ github.actor }}"

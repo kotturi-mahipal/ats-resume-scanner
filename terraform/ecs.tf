@@ -139,9 +139,8 @@ resource "aws_secretsmanager_secret" "ghcr_pat" {
   name = "ghcr-pat"
 }
 
-# This is the key change. We now store a JSON object, not a raw string.
 resource "aws_secretsmanager_secret_version" "ghcr_pat_version" {
-  secret_id = aws_secretsmanager_secret.ghcr_pat.id
+  secret_id     = aws_secretsmanager_secret.ghcr_pat.id
   secret_string = jsonencode({
     username = var.github_username
     password = var.github_pat
@@ -162,6 +161,15 @@ resource "aws_iam_role_policy" "ecs_secrets_policy" {
       }
     ]
   })
+}
+
+# --- SRE BEST PRACTICE: Explicit Log Group Creation ---
+resource "aws_cloudwatch_log_group" "backend_logs" {
+  name = "/ecs/ats-backend"
+}
+
+resource "aws_cloudwatch_log_group" "frontend_logs" {
+  name = "/ecs/ats-frontend"
 }
 
 # Backend Task Definition
@@ -185,20 +193,22 @@ resource "aws_ecs_task_definition" "backend" {
           hostPort      = 8080
         }
       ]
-      # This block tells ECS how to authenticate to the private registry
       repositoryCredentials = {
         credentialsParameter = aws_secretsmanager_secret.ghcr_pat.arn
       }
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          "awslogs-group"         = "/ecs/ats-backend"
+          "awslogs-group"         = aws_cloudwatch_log_group.backend_logs.name
           "awslogs-region"        = "us-east-1"
           "awslogs-stream-prefix" = "ecs"
         }
       }
     }
   ])
+
+  # This is the key fix: ensure the log group exists before creating the task definition
+  depends_on = [aws_cloudwatch_log_group.backend_logs]
 }
 
 # Frontend Task Definition
@@ -228,13 +238,16 @@ resource "aws_ecs_task_definition" "frontend" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          "awslogs-group"         = "/ecs/ats-frontend"
+          "awslogs-group"         = aws_cloudwatch_log_group.frontend_logs.name
           "awslogs-region"        = "us-east-1"
           "awslogs-stream-prefix" = "ecs"
         }
       }
     }
   ])
+
+  # This is the key fix: ensure the log group exists before creating the task definition
+  depends_on = [aws_cloudwatch_log_group.frontend_logs]
 }
 
 # Backend Service
@@ -297,6 +310,6 @@ resource "aws_cloudwatch_metric_alarm" "backend_cpu_high" {
     ServiceName = aws_ecs_service.backend.name
   }
 
-  # Sns updates for later
+  # In a real scenario, you would add an action to notify an SNS topic.
   # alarm_actions = [aws_sns_topic.user_updates.arn]
 }
