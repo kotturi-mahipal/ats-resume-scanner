@@ -244,3 +244,25 @@ resource "aws_ecs_service" "frontend" {
     container_port   = 80
   }
 }
+
+# --- Monitoring and Alerting ---
+
+resource "aws_cloudwatch_metric_alarm" "backend_cpu_high" {
+  alarm_name          = "ats-backend-cpu-utilization-high"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = "60"
+  statistic           = "Average"
+  threshold           = "80"
+  alarm_description   = "This metric monitors backend cpu utilization"
+
+  dimensions = {
+    ClusterName = aws_ecs_cluster.main.name
+    ServiceName = aws_ecs_service.backend.name
+  }
+
+  # Sns updates for later
+  # alarm_actions = [aws_sns_topic.user_updates.arn]
+}
