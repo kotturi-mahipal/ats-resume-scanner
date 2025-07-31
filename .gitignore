@@ -29,3 +29,6 @@ yarn-error.log*
 *.iml
 *.project
 *.settings
+
+ .terraform.lock.hcl
+ terraform.tfstate
