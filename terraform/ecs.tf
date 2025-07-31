@@ -5,19 +5,21 @@ resource "aws_ecs_cluster" "main" {
 
 # ALB to direct incoming traffic
 resource "aws_lb" "main" {
-  name = "ats-app-lb"
-  internal = false
+  name               = "ats-app-lb"
+  internal           = false
   load_balancer_type = "application"
-  security_groups = [aws_security_group.lb.id]
-  subnets = [for subnet in aws_subnet.public : subnet.id]
+  security_groups    = [aws_security_group.lb.id]
+  subnets            = [for subnet in aws_subnet.public : subnet.id]
 }
 
 # Target group for the FRONTEND service
 resource "aws_lb_target_group" "frontend" {
-  name     = "ats-frontend-tg"
-  port     = 80
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
+  name         = "ats-frontend-tg"
+  port         = 80
+  protocol     = "HTTP"
+  vpc_id       = aws_vpc.main.id
+  # This is the key fix for the frontend
+  target_type  = "ip"
   health_check {
     path = "/"
   }
@@ -25,24 +27,17 @@ resource "aws_lb_target_group" "frontend" {
 
 # Target group for the BACKEND service
 resource "aws_lb_target_group" "backend" {
-  name     = "ats-backend-tg"
-  port     = 8080
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
+  name         = "ats-backend-tg"
+  port         = 8080
+  protocol     = "HTTP"
+  vpc_id       = aws_vpc.main.id
+  # This is the key fix for the backend
+  target_type  = "ip"
   health_check {
     path = "/api/health" # Assuming a future health check endpoint
   }
 }
 
-# Target group for ALB to send traffic
-resource "aws_lb_target_group" "main" {
-  name = "ats-app-tg"
-  port = 80
-  protocol = "HTTP"
-  vpc_id = aws_vpc.main.id
-}
-
-# ALB listener to check traffic at port 80
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
   port              = "80"
@@ -72,7 +67,7 @@ resource "aws_lb_listener_rule" "api" {
   }
 }
 
-# SG to allow HTTP traffic to LB
+# Security group for the load balancer
 resource "aws_security_group" "lb" {
   name        = "ats-lb-sg"
   description = "Allow HTTP inbound traffic to LB"
@@ -93,8 +88,9 @@ resource "aws_security_group" "lb" {
   }
 }
 
-# -------------------------------------------------------------------------
-# ECS Task Definitions and Services
+# --- ECS Task Definitions and Services ---
+
+# A security group for our ECS tasks to allow traffic from the load balancer
 resource "aws_security_group" "ecs_tasks" {
   name        = "ats-ecs-tasks-sg"
   description = "Allow inbound traffic from the LB"
@@ -115,6 +111,7 @@ resource "aws_security_group" "ecs_tasks" {
   }
 }
 
+# IAM Role that our ECS tasks will assume
 resource "aws_iam_role" "ecs_task_execution_role" {
   name = "ecs_task_execution_role"
   assume_role_policy = jsonencode({
@@ -131,6 +128,7 @@ resource "aws_iam_role" "ecs_task_execution_role" {
   })
 }
 
+# Attach the required AWS managed policy to the role
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   role       = aws_iam_role.ecs_task_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
@@ -168,7 +166,6 @@ resource "aws_ecs_task_definition" "backend" {
     }
   ])
 }
-
 
 # Frontend Task Definition
 resource "aws_ecs_task_definition" "frontend" {
