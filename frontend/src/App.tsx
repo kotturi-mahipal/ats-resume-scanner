@@ -10,8 +10,6 @@ interface ATSResult {
     suggestions: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-
 // --- SVG ICONS ---
 const CheckIcon: FC<{ className?: string }> = ({ className }) => (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
@@ -35,7 +33,6 @@ const Spinner: FC = () => (
 
 // --- UI COMPONENTS ---
 
-// 1. Resume Upload Form
 const ResumeUploadForm: FC<{ onAnalysis: (result: ATSResult) => void; onLoading: (loading: boolean) => void; onError: (message: string) => void; isLoading: boolean; }> =
     ({ onAnalysis, onLoading, onError, isLoading }) => {
         const [resume, setResume] = useState<File | null>(null);
@@ -60,7 +57,9 @@ const ResumeUploadForm: FC<{ onAnalysis: (result: ATSResult) => void; onLoading:
             formData.append('jobDescription', jobDescription);
 
             try {
-                const response = await axios.post(`${API_BASE_URL}/api/upload`, formData, {
+                // This is the key change. We use a relative path.
+                // The browser will automatically send the request to the correct domain.
+                const response = await axios.post(`/api/upload`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
                 onAnalysis(response.data);
@@ -115,7 +114,7 @@ const ResumeUploadForm: FC<{ onAnalysis: (result: ATSResult) => void; onLoading:
         );
     };
 
-// 2. Analysis Results Display
+// The rest of the file (AnalysisResult and App components) remains the same.
 const AnalysisResult: FC<{ result: ATSResult; onReset: () => void }> = ({ result, onReset }) => {
     const scoreColor = result.score >= 75 ? 'text-green-600' : result.score >= 50 ? 'text-amber-600' : 'text-red-600';
     const scoreRingColor = result.score >= 75 ? 'stroke-green-500' : result.score >= 50 ? 'stroke-amber-500' : 'stroke-red-500';
@@ -125,8 +124,6 @@ const AnalysisResult: FC<{ result: ATSResult; onReset: () => void }> = ({ result
             <header className="text-center mb-10">
                 <h2 className="text-3xl font-bold text-gray-800">Analysis Report</h2>
             </header>
-
-            {/* Score Section */}
             <section className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 pb-10 border-b border-gray-200">
                 <div className="relative w-48 h-48">
                     <svg className="w-full h-full" viewBox="0 0 36 36">
@@ -149,8 +146,6 @@ const AnalysisResult: FC<{ result: ATSResult; onReset: () => void }> = ({ result
                     <p className="text-gray-600 mt-1">A measure of keyword and skill alignment.</p>
                 </div>
             </section>
-
-            {/* Keywords Section */}
             <section className="grid grid-cols-1 md:grid-cols-2 gap-8 py-10 border-b border-gray-200">
                 <div className="bg-green-50/70 p-6 rounded-lg">
                     <h4 className="text-xl font-semibold text-green-800 mb-4">Matching Skills</h4>
@@ -165,15 +160,12 @@ const AnalysisResult: FC<{ result: ATSResult; onReset: () => void }> = ({ result
                     </ul>
                 </div>
             </section>
-
-            {/* Suggestions Section */}
             <section className="pt-10">
                 <div className="bg-blue-50/70 p-6 rounded-lg">
                     <h4 className="text-xl font-semibold text-blue-800 mb-4 flex items-center gap-x-2"><LightbulbIcon className="w-6 h-6" /> AI-Powered Suggestions</h4>
                     <p className="text-gray-700 whitespace-pre-line leading-relaxed">{result.suggestions}</p>
                 </div>
             </section>
-
             <footer className="text-center mt-12">
                 <button onClick={onReset} className="px-8 py-2.5 font-semibold text-slate-800 bg-transparent border-2 border-slate-800 rounded-lg hover:bg-slate-800 hover:text-white transition-all duration-200">
                     Analyze Another
@@ -183,7 +175,6 @@ const AnalysisResult: FC<{ result: ATSResult; onReset: () => void }> = ({ result
     );
 };
 
-// --- MAIN APP COMPONENT ---
 const App: FC = () => {
     const [result, setResult] = useState<ATSResult | null>(null);
     const [isLoading, setIsLoading] = useState(false);
