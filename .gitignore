@@ -16,19 +16,24 @@ yarn-error.log*
 /frontend/coverage
 
 # Java / Backend
-/backend/target
+/backend/target/
 /backend/.mvn/
 *.class
 *.jar
 *.war
 *.ear
 
-# IDEs
+# Terraform
+/terraform/.terraform/
+/terraform/*.tfstate
+/terraform/*.tfstate.*
+/terraform/crash.log
+/terraform/.terraform.lock.hcl
+
+# IDEs & OS files
 .idea/
 .vscode/
 *.iml
 *.project
 *.settings
-
- .terraform.lock.hcl
- terraform.tfstate
+Thumbs.db

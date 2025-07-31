@@ -3,7 +3,8 @@ resource "aws_ecs_cluster" "main" {
   name = "ats-app-cluster"
 }
 
-# ALB to direct incoming traffic
+# --- Load Balancer Resources ---
+
 resource "aws_lb" "main" {
   name               = "ats-app-lb"
   internal           = false
@@ -18,7 +19,6 @@ resource "aws_lb_target_group" "frontend" {
   port         = 80
   protocol     = "HTTP"
   vpc_id       = aws_vpc.main.id
-  # This is the key fix for the frontend
   target_type  = "ip"
   health_check {
     path = "/"
@@ -31,7 +31,6 @@ resource "aws_lb_target_group" "backend" {
   port         = 8080
   protocol     = "HTTP"
   vpc_id       = aws_vpc.main.id
-  # This is the key fix for the backend
   target_type  = "ip"
   health_check {
     path = "/api/health" # Assuming a future health check endpoint
@@ -134,6 +133,33 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# --- SRE BEST PRACTICE: Private Registry Authentication ---
+# Create a secret in AWS Secrets Manager to hold the GitHub PAT
+resource "aws_secretsmanager_secret" "ghcr_pat" {
+  name = "ghcr-pat"
+}
+
+resource "aws_secretsmanager_secret_version" "ghcr_pat_version" {
+  secret_id     = aws_secretsmanager_secret.ghcr_pat.id
+  secret_string = var.github_pat # Pass the PAT as a variable
+}
+
+# Add a policy to the ECS Task Execution Role to allow it to read the secret
+resource "aws_iam_role_policy" "ecs_secrets_policy" {
+  name = "ecs-secrets-policy"
+  role = aws_iam_role.ecs_task_execution_role.id
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = ["secretsmanager:GetSecretValue"],
+        Resource = [aws_secretsmanager_secret.ghcr_pat.arn]
+      }
+    ]
+  })
+}
+
 # Backend Task Definition
 resource "aws_ecs_task_definition" "backend" {
   family                   = "ats-backend-task"
@@ -155,6 +181,10 @@ resource "aws_ecs_task_definition" "backend" {
           hostPort      = 8080
         }
       ]
+      # This block tells ECS how to authenticate to the private registry
+      repositoryCredentials = {
+        credentialsParameter = aws_secretsmanager_secret.ghcr_pat.arn
+      }
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -188,6 +218,9 @@ resource "aws_ecs_task_definition" "frontend" {
           hostPort      = 80
         }
       ]
+      repositoryCredentials = {
+        credentialsParameter = aws_secretsmanager_secret.ghcr_pat.arn
+      }
       logConfiguration = {
         logDriver = "awslogs"
         options = {
